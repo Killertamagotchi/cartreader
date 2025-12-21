@@ -356,10 +356,9 @@ try {
                 Remove-Item $CH341Dest -Recurse -Force
             }
             $drvZip = Join-Path $root "drivers.zip"
-            Get-FileWithProgress -Url "https://file.wch.cn/download/file?id=5" -Destination $drvZip
-
+            Get-FileWithProgress -Url "https://www.wch-ic.com/download/file?id=5" -Destination $drvZip
             Write-Host "Verifying SHA256..."
-            $expectedHash = "07b0fd92b1d0c26f1b9d35028a02d7c03af539a744da7c4dbec4c09480ac6417"
+            $expectedHash = "a7b08baaaf9b0e8548ffbab2a91fab8c75595f8d63a42a490fbf3fd1e747e21c"
             $hash = (Get-FileHash $drvZip -Algorithm SHA256).Hash
             if ($hash -ne $expectedHash) {
                 Write-Error "Checksum mismatch! Aborting."
@@ -385,6 +384,30 @@ try {
                 -replace '#define U8G2_WITH_FONT_ROTATION', '//#define U8G2_WITH_FONT_ROTATION' `
                 -replace '#define U8G2_WITH_UNICODE', '//#define U8G2_WITH_UNICODE' |
             Set-Content -Encoding ASCII $u8g2Header
+			
+            ### Step 9: Optimize Compiler ###
+            Write-Host "Step 9: Optimizing compiler..." -ForegroundColor Green
+            $platformLocalPath = Join-Path $root 'Arduino IDE\hardware\arduino\avr\platform.local.txt'
+
+            # Ensure target directory exists
+            $platformDir = Split-Path $platformLocalPath -Parent
+            if (-not (Test-Path $platformDir)) {
+                New-Item -Path $platformDir -ItemType Directory -Force | Out-Null
+            }
+
+            # Desired content as array (preserves indentation)
+            $platformLocalContent = @(
+                'compiler.c.extra_flags=-mcall-prologues'
+                'compiler.cpp.extra_flags=-mcall-prologues'
+                'compiler.S.extra_flags='
+                'compiler.ar.extra_flags='
+                'compiler.objcopy.eep.extra_flags='
+                'compiler.elf2hex.extra_flags='
+                'compiler.c.elf.extra_flags=-Wl,--relax'
+            )
+
+            # Create / overwrite file with UTF-8 encoding
+            $platformLocalContent | Set-Content -Path $platformLocalPath -Encoding UTF8 -Force
 
             Write-Host "DONE. Portable Arduino IDE for OSCR with updated AVR-GCC compiler is ready."
         }
